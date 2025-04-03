@@ -257,6 +257,11 @@ var TinyTestHarness = (function () {
     this._addOutput("TAP version 13");
   }
 
+  Harness.prototype.on = function(event, listener) {
+    this._emitter.on(event, listener);
+    return this;
+  };
+
   Harness.prototype._addOutput = function (line) {
     this._output.push(line);
     this._bufferedOutput.push(line);

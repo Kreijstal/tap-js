@@ -31,17 +31,14 @@ const t = test.test('Main test suite', (t) => {
 
 // Handle completion
 const testPromise = new Promise((resolve, reject) => {
-  test.onFinish(() => {
+  test.on('finish', () => {
     console.log('All tests completed!');
     resolve(output);
   });
   
-  // Listen for errors on both the test and harness
-  const errorHandler = (err) => {
+  test.on('error', (err) => {
     reject(err);
-  };
-  t.on('error', errorHandler);
-  test.on('error', errorHandler);
+  });
 });
 
 // Run tests
