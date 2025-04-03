@@ -9,8 +9,10 @@ test.test('Basic assertions', t => {
 });
 
 test.test('Async test', t => {
+    t._pendingAsync++; // Mark async operation start
     setTimeout(() => {
         t.pass('async test passed');
+        t.done(); // Mark async operation complete
         t.end();
     }, 100);
 });

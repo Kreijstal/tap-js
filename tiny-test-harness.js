@@ -34,6 +34,7 @@ var TinyTestHarness = (function () {
     this._results = [];
     this._children = [];
     this._pendingChildren = 0;
+    this._pendingAsync = 0; // Track pending async operations
     this._ended = false;
     this._plan = null; // Optional: number of assertions planned
     this._assertionCount = 0;
@@ -186,7 +187,7 @@ var TinyTestHarness = (function () {
     if (this._ended) {
       return;
     }
-    if (this._pendingChildren > 0) {
+    if (this._pendingChildren > 0 || this._pendingAsync > 0) {
       this._waitingToEnd = true;
       return;
     }
@@ -208,13 +209,24 @@ var TinyTestHarness = (function () {
     }
   };
 
+  TestContext.prototype.done = function() {
+    this._pendingAsync--;
+    if (this._pendingAsync < 0) {
+      console.error("INTERNAL ERROR: Pending async count went negative for test '" + this.name + "'");
+      this._pendingAsync = 0;
+    }
+    if (this._waitingToEnd && this._pendingChildren === 0 && this._pendingAsync === 0) {
+      this.end();
+    }
+  };
+
   TestContext.prototype._childEnded = function (child) {
     this._pendingChildren--;
     if (this._pendingChildren < 0) {
         console.error("INTERNAL ERROR: Pending children count went negative for test '" + this.name + "'");
         this._pendingChildren = 0;
     }
-    if (this._waitingToEnd && this._pendingChildren === 0) {
+    if (this._waitingToEnd && this._pendingChildren === 0 && this._pendingAsync === 0) {
       this.end();
     }
   };
