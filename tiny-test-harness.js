@@ -1,7 +1,17 @@
 const _ = require('lodash');
 
+// --- Debug Flag ---
+// Set to true to enable detailed console logging from the harness itself.
+const DEBUG_MODE = true;
+function debugLog(...args) {
+  if (DEBUG_MODE) {
+    console.log('[DEBUG]', ...args);
+  }
+}
+
 var TinyTestHarness = (function () {
   // --- Simple EventEmitter ---
+  // Basic event emitter for signaling completion, compatible with most engines.
   // Basic event emitter for signaling completion, compatible with most engines
   function EventEmitter() {
     this._listeners = {};
@@ -40,8 +50,9 @@ var TinyTestHarness = (function () {
     this._assertionCount = 0;
     this._failed = false; // Track if this test or any children failed
     this._emitter = new EventEmitter();
+    debugLog(`TestContext created: "${this.name}" (parent: ${parent ? `"${parent.name}"` : 'null'})`);
 
-    // Output test start immediately
+    // Output test start immediately according to TAP spec.
     this._log("# " + this.name);
   }
 
@@ -50,7 +61,9 @@ var TinyTestHarness = (function () {
     return this;
   };
 
+  // Internal method to log TAP output via the harness.
   TestContext.prototype._log = function (message) {
+    // Trim to avoid extra newlines in harness output buffer.
     this._harness._addOutput(message.trim());
   };
 
@@ -63,18 +76,24 @@ var TinyTestHarness = (function () {
       details: details
     };
     this._results.push(result);
+    debugLog(`Assertion ${result.id} (${this.name}): ${ok ? 'OK' : 'NOT OK'} - ${result.message}`);
     if (!ok) {
-      this._failed = true; // Mark this test as failed
+      this._failed = true; // Mark this test context as failed.
+      debugLog(`Test "${this.name}" marked as failed due to assertion ${result.id}`);
       var current = this;
       while (current) {
+        // Propagate failure status upwards to parent contexts.
         // Propagate failure upwards
         current._failed = true;
         current = current._parent;
       }
+      // Log TAP output for a failing assertion.
       this._log("not ok " + result.id + " " + result.message);
       if (details) {
+        // Log YAMLish details block for failures.
         this._log("  ---");
         this._log("  operator: " + details.operator);
+        // Only include expected/actual if they are relevant for the operator.
         if (details.hasOwnProperty("expected")) {
           this._log("  expected: " + JSON.stringify(details.expected));
         }
@@ -82,17 +101,19 @@ var TinyTestHarness = (function () {
           this._log("  actual:   " + JSON.stringify(details.actual));
         }
         if (details.error) {
+            // Format error with stack trace if available.
             var stack = details.error.stack ? String(details.error.stack) : String(details.error);
-            // Indent stack trace
+            // Indent stack trace for YAML block.
             var indentedStack = stack.split('\n').map(function(line) { return '    ' + line; }).join('\n');
             this._log("  error: |-\n" + indentedStack);
         }
         this._log("  ...");
       }
     } else {
+      // Log TAP output for a passing assertion.
       this._log("ok " + result.id + " " + result.message);
     }
-    return result.ok;
+    return result.ok; // Return boolean status.
   };
 
   TestContext.prototype.pass = function (message) {
@@ -126,40 +147,65 @@ var TinyTestHarness = (function () {
     });
   };
 
+  // Assertion: checks if function `fn` throws an error.
+  // `expectedError` can be undefined (any error), a constructor, a RegExp, or a string.
+  // `message` is the description of the assertion.
   TestContext.prototype.throws = function (fn, expectedError, message) {
       var caught = null;
       var ok = false;
+      // If only two arguments are provided, the second is the message.
+      if (typeof expectedError === 'string' && message === undefined) {
+          message = expectedError;
+          expectedError = undefined; // Indicate any error is acceptable.
+      }
       message = message || 'should throw';
+      debugLog(`throws (${this.name}): Running function. Expecting error? ${expectedError !== undefined ? String(expectedError) : 'Any'}`);
+
       try {
-          fn();
+          fn(); // Execute the function under test.
       } catch (e) {
-          caught = e;
+          caught = e; // Capture the thrown error.
+          debugLog(`throws (${this.name}): Caught error:`, e);
       }
 
       if (caught) {
-          if (!expectedError) {
-              // Any error is okay if none specified
+          // An error was caught, now check if it matches expectations.
+          if (expectedError === undefined) {
+              // Any error is okay if none specified.
+              debugLog(`throws (${this.name}): No expected error specified, caught one. OK.`);
               ok = true;
           } else if (typeof expectedError === 'function' && caught instanceof expectedError) {
-              // Check constructor
+              // Check if error is instance of expected constructor.
+              debugLog(`throws (${this.name}): Caught error is instance of ${expectedError.name}. OK.`);
               ok = true;
-          } else if (expectedError instanceof RegExp && expectedError.test(String(caught))) {
-              // Check regex against error message
+          } else if (expectedError instanceof RegExp && expectedError.test(String(caught.message || caught))) {
+              // Check if error message matches RegExp.
+              debugLog(`throws (${this.name}): Caught error message matches RegExp ${expectedError}. OK.`);
               ok = true;
-          } else if (typeof expectedError === 'string' && String(caught).indexOf(expectedError) !== -1) {
-              // Check string substring
+          } else if (typeof expectedError === 'string' && String(caught.message || caught).indexOf(expectedError) !== -1) {
+              // Check if error message contains expected string.
+              debugLog(`throws (${this.name}): Caught error message contains string "${expectedError}". OK.`);
               ok = true;
+          } else {
+              debugLog(`throws (${this.name}): Caught error does not match expectation: ${String(expectedError)}`);
           }
+      } else {
+          // No error was caught.
+          debugLog(`throws (${this.name}): Function did not throw.`);
       }
 
+      // Prepare details for TAP output on failure.
       var details = { operator: 'throws', actual: caught };
-      if (expectedError) {
+      if (expectedError !== undefined) {
+          // Correctly report the *expected* error condition, not the assertion message.
           details.expected = String(expectedError);
       }
       if (!ok) {
+          // If the check failed, include the caught error (or a "did not throw" error) in details.
           details.error = caught || new Error('Function did not throw');
       }
 
+      debugLog(`throws (${this.name}): Final result: ${ok ? 'OK' : 'NOT OK'}. Message: "${message}"`);
       return this._addResult(ok, message, details);
   };
 
@@ -170,31 +216,45 @@ var TinyTestHarness = (function () {
     var child = new TestContext(name, this._harness, this);
     this._children.push(child);
     this._pendingChildren++;
+    debugLog(`Sub-test scheduled: "${name}" (parent: "${this.name}"). Pending children for "${this.name}": ${this._pendingChildren}`);
+    // Enqueue the child test to run after the current synchronous flow completes.
     this._harness._enqueue(function () {
       child._run(cb);
     });
   };
 
+  // Internal method to execute the test function.
   TestContext.prototype._run = function (cb) {
     var self = this;
+    debugLog(`Running test: "${self.name}"`);
     try {
-      cb(self);
+      cb(self); // Execute the user's test function with the context (t).
     } catch (e) {
-      self._addResult(false, "test function threw synchronously", {
-          operator: 'error',
+      // Handle synchronous errors thrown directly by the test function.
+      debugLog(`Error thrown synchronously in test "${self.name}":`, e);
+      self._addResult(false, "test function threw synchronously: " + e.message, {
+          operator: 'error', // Indicates an uncaught error during test execution.
           actual: e,
-          error: e
+          error: e // Include the error object in details.
       });
+      // If the test function crashes, end the test immediately.
       self.end();
     }
+    // Note: If the test is async, cb(self) might just *start* async operations.
+    // It's up to the test author to call t.end() or manage t.done() correctly.
   };
 
   TestContext.prototype.end = function () {
     if (this._ended) {
+      debugLog(`end (${this.name}): Already ended.`);
       return;
     }
+    debugLog(`end (${this.name}): Called. Pending children: ${this._pendingChildren}, Pending async: ${this._pendingAsync}`);
+    // If there are outstanding asynchronous operations or child tests,
+    // defer the actual end logic until they complete.
     if (this._pendingChildren > 0 || this._pendingAsync > 0) {
       this._waitingToEnd = true;
+      debugLog(`end (${this.name}): Waiting for ${this._pendingChildren} children and ${this._pendingAsync} async ops.`);
       return;
     }
 
@@ -206,37 +266,71 @@ var TinyTestHarness = (function () {
       });
     }
 
-    this._ended = true;
+    debugLog(`end (${this.name}): Finalizing.`);
+    this._ended = true; // Mark as ended to prevent further actions.
 
-    if (this._failed) {
-      this._emitter.emit('error', new Error('Test failed'));
+    // Check plan vs actual assertion count if a plan was set.
+    if (this._plan !== null && this._plan !== this._assertionCount) {
+      this._addResult(false, "plan != count", {
+          operator: 'plan',
+          expected: this._plan,
+          actual: this._assertionCount
+      });
     }
 
+
+    if (this._failed) {
+      // Emit an error event if this test or its children failed (optional, for programmatic use).
+      // Note: This is not standard TAP behavior.
+      // this._emitter.emit('error', new Error(`Test "${this.name}" failed`));
+      debugLog(`end (${this.name}): Test failed.`);
+    } else {
+      debugLog(`end (${this.name}): Test passed.`);
+    }
+
+    // Notify parent or harness that this test has completed.
     if (this._parent) {
+      debugLog(`end (${this.name}): Notifying parent "${this._parent.name}"`);
       this._parent._childEnded(this);
     } else {
+      // This is a top-level test.
+      debugLog(`end (${this.name}): Notifying harness.`);
       this._harness._testEnded(this);
     }
   };
 
+  // Method for tests to signal completion of an asynchronous operation.
+  // Must be paired with an initial increment of `_pendingAsync`.
   TestContext.prototype.done = function() {
+    debugLog(`done (${this.name}): Async operation finished. Decrementing pending count.`);
     this._pendingAsync--;
     if (this._pendingAsync < 0) {
+      // Should not happen if used correctly, but prevent negative counts.
+      console.error(`INTERNAL WARNING (${this.name}): _pendingAsync went negative.`);
       this._pendingAsync = 0;
     }
+    debugLog(`done (${this.name}): Pending async count now: ${this._pendingAsync}`);
+    // If the test was waiting to end, check if all conditions are now met.
     if (this._waitingToEnd && this._pendingChildren === 0 && this._pendingAsync === 0) {
-      this.end();
+      debugLog(`done (${this.name}): All pending operations finished while waiting to end. Calling end() now.`);
+      this.end(); // Trigger the deferred end logic.
     }
   };
 
+  // Internal callback when a child test context finishes.
   TestContext.prototype._childEnded = function (child) {
+    debugLog(`_childEnded (${this.name}): Child "${child.name}" ended. Decrementing pending count.`);
     this._pendingChildren--;
     if (this._pendingChildren < 0) {
-        console.error("INTERNAL ERROR: Pending children count went negative for test '" + this.name + "'");
+        // Should not happen.
+        console.error(`INTERNAL ERROR (${this.name}): Pending children count went negative.`);
         this._pendingChildren = 0;
     }
+     debugLog(`_childEnded (${this.name}): Pending children count now: ${this._pendingChildren}`);
+    // If this parent test was waiting to end, check if conditions are met.
     if (this._waitingToEnd && this._pendingChildren === 0 && this._pendingAsync === 0) {
-      this.end();
+      debugLog(`_childEnded (${this.name}): All pending operations finished while waiting to end. Calling end() now.`);
+      this.end(); // Trigger the deferred end logic.
     }
   };
 
@@ -254,9 +348,11 @@ var TinyTestHarness = (function () {
     this._streamListeners = [];
     // Store output until stream is connected
     this._bufferedOutput = [];
-    this._addOutput("TAP version 13");
+    this._addOutput("TAP version 13"); // Standard TAP header.
+    debugLog("Harness created.");
   }
 
+  // Register event listeners on the harness (e.g., 'finish', 'error', 'end').
   Harness.prototype.on = function(event, listener) {
     this._emitter.on(event, listener);
     return this;
@@ -280,35 +376,61 @@ var TinyTestHarness = (function () {
     }
   };
 
+  // Add a test function (or other task) to the execution queue.
   Harness.prototype._enqueue = function (fn) {
+    debugLog(`_enqueue: Adding task to queue. Queue size: ${this._queue.length + 1}`);
     this._queue.push(fn);
+    // If the queue processor isn't currently running, start it.
     if (!this._running) {
+      debugLog("_enqueue: Queue not running, starting processor.");
       this._processQueue();
     }
   };
 
+  // Process the queue of test functions asynchronously.
   Harness.prototype._processQueue = function () {
+    if (this._running) {
+        debugLog("_processQueue: Already running.");
+        return; // Avoid concurrent processing loops.
+    }
+    debugLog("_processQueue: Starting run.");
     this._running = true;
     var self = this;
+
     function nextTick() {
+        debugLog(`_processQueue.nextTick: Queue length: ${self._queue.length}, Pending tests: ${self._pendingTests}`);
         if (self._queue.length > 0) {
+            // Get the next task (typically running a test function).
             var task = self._queue.shift();
+            debugLog("_processQueue.nextTick: Dequeued task.");
             try {
-                task();
+                task(); // Execute the task (e.g., test._run(cb)).
             } catch (e) {
-                console.error("Error processing test queue:", e);
-                self._addOutput("Bail out! Uncaught error during test setup/execution.");
-                self._finalize(true);
-                return;
+                // Catastrophic error during task execution (should ideally be caught within TestContext._run).
+                console.error("FATAL: Error processing test queue:", e);
+                self._addOutput("Bail out! Uncaught error during test execution.");
+                // Attempt to finalize immediately, marking as failed.
+                self._finalize(true); // Pass true for failure.
+                return; // Stop processing.
             }
+            // Yield to the event loop before processing the next task.
+            // This allows I/O, timers, etc., to run between test initializations.
             setTimeout(nextTick, 0);
         } else {
-            self._running = false;
+            // Queue is empty.
+            debugLog("_processQueue.nextTick: Queue empty.");
+            self._running = false; // Mark processor as stopped.
+            // Check if all top-level tests have finished *and* the queue is empty.
+            // This is a potential condition for finalization.
             if (self._pendingTests === 0 && self._topLevelTests.length > 0) {
+                debugLog("_processQueue.nextTick: Queue empty and no pending tests. Finalizing.");
                 self._finalize(self._totalFailed > 0);
+            } else {
+                 debugLog(`_processQueue.nextTick: Queue empty but ${self._pendingTests} tests still pending.`);
             }
         }
     }
+    // Start the processing loop, yielding first.
     setTimeout(nextTick, 0);
   };
 
@@ -322,52 +444,92 @@ var TinyTestHarness = (function () {
       this._enqueue(function() {
         test._run(cb);
       });
+    } else {
+        debugLog(`Test created but not scheduled immediately: "${name}" (use test.run())`);
     }
     
-    return test;
+    return test; // Return the TestContext instance.
   };
 
+  // Manually enqueue and run a test that was created without a callback.
   TestContext.prototype.run = function() {
+    // Note: The original implementation stored the callback on `this._cb`.
+    // This seems missing in the provided code. Assuming the callback was passed
+    // during creation but not immediately enqueued. Let's refine the main `test` method.
+    // For now, this method might not work as intended without `this._cb`.
+    // Let's assume the user calls harness.test(name) then test.run(cb).
+    // A better pattern might be needed here.
+    // *** Revision needed based on intended usage pattern ***
+    // If the intent is harness.test(name, cb) OR harness.test(name) then test.run(),
+    // the callback needs storing. Let's adjust the main `test` method slightly.
+
+    // Assuming _cb exists (needs fix in harness.test or createHarness):
     if (this._cb) {
-      this._harness._enqueue(() => {
-        this._run(this._cb);
-      });
+        debugLog(`run (${this.name}): Manually enqueuing test.`);
+        this._harness._enqueue(() => {
+            this._run(this._cb);
+        });
+    } else {
+        console.error(`WARNING (${this.name}): test.run() called but no callback function available.`);
     }
   };
 
+  // Internal callback when a top-level test context finishes.
   Harness.prototype._testEnded = function(test) {
+      debugLog(`_testEnded: Top-level test "${test.name}" ended. Failed: ${test._failed}`);
       this._pendingTests--;
       this._totalAssertions += test._assertionCount;
       if (test._failed) {
           this._totalFailed++;
+          debugLog(`_testEnded: Total failed count incremented to ${this._totalFailed}`);
       }
-      if (!this._running && this._pendingTests === 0 && this._queue.length === 0) {
+       debugLog(`_testEnded: Pending top-level tests remaining: ${this._pendingTests}`);
+
+      // Check if this was the last pending test AND the queue processor is not running.
+      if (this._pendingTests === 0 && !this._running && this._queue.length === 0) {
+          debugLog("_testEnded: Last test ended and queue is idle. Finalizing.");
           this._finalize(this._totalFailed > 0);
+      } else {
+          debugLog(`_testEnded: Not finalizing yet. Running: ${this._running}, Pending Tests: ${this._pendingTests}, Queue Length: ${this._queue.length}`);
       }
   };
 
+  // Finalize the test run, print summary, and emit completion events.
   Harness.prototype._finalize = function(failed) {
+      debugLog(`_finalize: Called. Failed status: ${failed}. Finalized already? ${this._finalized}`);
+      // Prevent multiple finalizations.
       if (this._finalized) return;
       this._finalized = true;
+      debugLog("_finalize: Marked as finalized.");
 
-      // Ensure all output is processed first
+      // Use setTimeout to ensure this runs after any currently pending microtasks or I/O callbacks.
+      // This helps ensure all test output has been generated before the summary.
+      // A small delay like 10ms might still be brittle; 0ms is often sufficient.
       setTimeout(() => {
-        this._addOutput("");
-        this._addOutput("1.." + (this._assertionId - 1));
-        this._addOutput("# tests " + (this._assertionId - 1));
-        var passCount = (this._assertionId - 1) - this._totalFailed;
-        this._addOutput("# pass " + passCount);
+        debugLog("_finalize (in timeout): Generating final TAP summary.");
+        const totalAssertions = this._assertionId - 1; // Assertion IDs start at 1.
+        this._addOutput(""); // Blank line before summary.
+        this._addOutput("1.." + totalAssertions); // TAP plan line.
+        this._addOutput("# tests " + totalAssertions); // Total assertions executed.
+        var passCount = totalAssertions - this._totalFailed;
+        this._addOutput("# pass " + passCount); // Total passing assertions.
         if (this._totalFailed > 0) {
-            this._addOutput("# fail " + this._totalFailed);
+            this._addOutput("# fail " + this._totalFailed); // Total failing assertions.
         } else {
-            this._addOutput("# ok");
+            this._addOutput("# ok"); // Overall status indicator (optional but common).
         }
-        this._addOutput("");
-        this._addOutput("All tests completed!");
-        
+        this._addOutput(""); // Blank line after summary.
+        // Optional: Add a human-readable summary line.
+        // this._addOutput("# All tests completed!");
+
+        debugLog(`_finalize (in timeout): Emitting events. Failed: ${failed}`);
+        // Emit 'finish' or 'error' based on the overall result.
+        // Pass the full TAP output string to listeners.
         this._emitter.emit(failed ? "error" : "finish", this._output.join("\n"));
+        // Emit 'end' event to signal stream completion.
         this._emitter.emit("end");
-      }, 10);
+        debugLog("_finalize (in timeout): Events emitted.");
+      }, 0); // Use 0ms delay, usually sufficient for event loop tick.
   };
 
   Harness.prototype.onFinish = function (cb) {
@@ -413,20 +575,34 @@ var TinyTestHarness = (function () {
 
   function createHarness() {
     const harness = new Harness();
-    // Expose test method directly on harness instance
+    // Expose the primary 'test' method directly on the harness instance
+    // for the common case: harness.test(...)
     harness.test = function(name, cb) {
+      // Create a top-level test context (no parent).
       const test = new TestContext(name, this, null);
+      // Store the callback on the test context in case test.run() is used later.
+      // This addresses the potential issue noted in TestContext.prototype.run.
+      test._cb = cb;
       this._topLevelTests.push(test);
       this._pendingTests++;
-      
+      debugLog(`harness.test: Created top-level test "${name}". Pending tests: ${this._pendingTests}`);
+
+      // If a callback is provided, enqueue it for immediate (asynchronous) execution.
       if (cb) {
+        debugLog(`harness.test: Enqueuing immediate run for "${name}"`);
         this._enqueue(function() {
-          test._run(cb);
+          // We need the 'test' instance inside the closure.
+          const currentTest = test;
+          currentTest._run(currentTest._cb);
         });
+      } else {
+        // If no callback, the user must call test.run() later.
+        debugLog(`harness.test: Test "${name}" created without callback. Manual run required.`);
       }
-      
-      return test;
+
+      return test; // Return the TestContext instance.
     };
+    debugLog("createHarness: Harness instance created and configured.");
     return harness;
   }
 
