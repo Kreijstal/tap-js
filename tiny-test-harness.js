@@ -257,6 +257,9 @@ var TinyTestHarness = (function () {
     for (var i = 0; i < this._streamListeners.length; i++) {
         try {
             this._streamListeners[i](line);
+            if (this._streamListeners[i]._destination) {
+                this._streamListeners[i]._destination.write(line + '\n');
+            }
         } catch(e) {
             console.error("Error in stream listener:", e);
         }
@@ -347,7 +350,12 @@ var TinyTestHarness = (function () {
   function SimpleStream(harness) {
       this._harness = harness;
       this._emitter = new EventEmitter();
+      this._destination = null;
   }
+  SimpleStream.prototype.pipe = function(destination) {
+      this._destination = destination;
+      return this;
+  };
   SimpleStream.prototype.on = function(event, listener) {
       if (event === 'data') {
           var streamListener = function(line) {

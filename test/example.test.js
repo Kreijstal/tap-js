@@ -1,5 +1,9 @@
 const test = require('../tiny-test-harness').createHarness();
 
+// Create a stream to output TAP results to stdout
+const stream = test.createStream();
+stream.pipe(process.stdout);
+
 console.log('Test harness created');
 
 test.test('Basic assertions', t => {
