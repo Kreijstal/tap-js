@@ -1,39 +1,48 @@
 const test = require('../tiny-test-harness').createHarness();
 
-console.error('DEBUG: Test harness created');
+// Collect output in a string
+let output = '';
+test.createStream({ objectMode: false }).on('data', function(row) {
+  output += row + '\n';
+  console.log(row);
+});
 
-// Create and pipe stream immediately 
-const stream = test.createStream().pipe(process.stdout);
-console.error('DEBUG: Stream created and piped');
-
-test.test('Basic assertions', t => {
-    console.error('DEBUG: Basic assertions test started');
+// Create main test
+const t = test('Main test suite', (t) => {
+  t.test('Basic assertions', (t) => {
     t.equal(1, 1, 'numbers should be equal');
     t.equal('hello', 'hello', 'strings should be equal');
     t.deepEqual({a: 1}, {a: 1}, 'objects should be deeply equal');
     t.throws(() => { throw new Error('oops') }, 'should throw error');
-    console.error('DEBUG: Basic assertions calling end()');
     t.end();
-    console.error('DEBUG: Basic assertions after end()');
-});
+  });
 
-test.test('Async test', t => {
-    console.error('DEBUG: Async test started');
+  t.test('Async test', (t) => {
     t._pendingAsync++; // Mark async operation start
-    console.error('DEBUG: Pending async count:', t._pendingAsync);
     
     setTimeout(() => {
-        console.error('DEBUG: Async timeout fired');
-        t.pass('async test passed');
-        console.error('DEBUG: Calling done()');
-        t.done();
-        console.error('DEBUG: Calling end()');
-        t.end();
+      t.pass('async test passed');
+      t.done();
+      t.end();
     }, 100);
+  });
 });
 
-test.onFinish(() => {
-    console.error('DEBUG: All tests completed!');
+// Handle completion
+const testPromise = new Promise((resolve, reject) => {
+  test.onFinish(() => {
+    console.log('All tests completed!');
+    resolve(output);
+  });
+  
+  t.on('error', (err) => {
+    reject(err);
+  });
 });
 
-console.error('DEBUG: All tests registered');
+// Run tests
+t.run();
+t.end();
+
+// Export promise for async test runners
+module.exports = testPromise;

@@ -305,17 +305,26 @@ var TinyTestHarness = (function () {
   };
 
   Harness.prototype.test = function (name, cb) {
-    console.error('DEBUG: Creating test:', name);
     var test = new TestContext(name, this, null);
     this._topLevelTests.push(test);
     this._pendingTests++;
-    console.error('DEBUG: Pending tests:', this._pendingTests);
-    var self = this;
-    this._enqueue(function() {
-        console.error('DEBUG: Running test:', name);
+    
+    // Support both immediate and manual run modes
+    if (cb) {
+      this._enqueue(function() {
         test._run(cb);
-    });
+      });
+    }
+    
     return test;
+  };
+
+  TestContext.prototype.run = function() {
+    if (this._cb) {
+      this._harness._enqueue(() => {
+        this._run(this._cb);
+      });
+    }
   };
 
   Harness.prototype._testEnded = function(test) {
@@ -360,6 +369,7 @@ var TinyTestHarness = (function () {
       this._harness = harness;
       this._emitter = new EventEmitter();
       this._destination = null;
+      this._objectMode = false;
   }
   SimpleStream.prototype.pipe = function(destination) {
       this._destination = destination;
