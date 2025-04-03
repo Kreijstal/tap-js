@@ -44,5 +44,13 @@ const testPromise = new Promise((resolve, reject) => {
 // Run tests
 t.run();
 
+// Keep process alive until tests complete
+testPromise.then(() => {
+  // Node will exit naturally after this
+}).catch(err => {
+  console.error(err);
+  process.exit(1);
+});
+
 // Export promise for async test runners
 module.exports = testPromise;
