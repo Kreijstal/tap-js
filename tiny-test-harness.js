@@ -351,8 +351,8 @@ var TinyTestHarness = (function () {
       this._finalized = true;
 
       this._addOutput("");
-      this._addOutput("1.." + this._assertionId - 1);
-      this._addOutput("# tests " + (this._assertionId -1));
+      this._addOutput("1.." + (this._assertionId - 1));
+      this._addOutput("# tests " + (this._assertionId - 1));
       var passCount = (this._assertionId - 1) - this._totalFailed;
       this._addOutput("# pass " + passCount);
       if (this._totalFailed > 0) {

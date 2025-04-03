@@ -46,7 +46,10 @@ t.run();
 
 // Keep process alive until tests complete
 testPromise.then(() => {
-  // Node will exit naturally after this
+  // Add slight delay to ensure all output is flushed
+  setTimeout(() => {
+    console.log('\nAll tests completed!');
+  }, 10);
 }).catch(err => {
   console.error(err);
   process.exit(1);
