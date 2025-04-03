@@ -281,23 +281,18 @@ var TinyTestHarness = (function () {
   };
 
   Harness.prototype._enqueue = function (fn) {
-    console.error('DEBUG: Enqueuing function');
     this._queue.push(fn);
     if (!this._running) {
-      console.error('DEBUG: Starting queue processing');
       this._processQueue();
     }
   };
 
   Harness.prototype._processQueue = function () {
-    console.error('DEBUG: ProcessQueue started');
     this._running = true;
     var self = this;
     function nextTick() {
-        console.error('DEBUG: NextTick - queue length:', self._queue.length);
         if (self._queue.length > 0) {
             var task = self._queue.shift();
-            console.error('DEBUG: Processing task');
             try {
                 task();
             } catch (e) {
@@ -306,18 +301,14 @@ var TinyTestHarness = (function () {
                 self._finalize(true);
                 return;
             }
-            console.error('DEBUG: Scheduling next tick');
             setTimeout(nextTick, 0);
         } else {
-            console.error('DEBUG: Queue empty');
             self._running = false;
             if (self._pendingTests === 0 && self._topLevelTests.length > 0) {
-                console.error('DEBUG: Finalizing tests');
                 self._finalize(self._totalFailed > 0);
             }
         }
     }
-    console.error('DEBUG: Starting first tick');
     setTimeout(nextTick, 0);
   };
 
