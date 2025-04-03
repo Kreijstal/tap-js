@@ -51,7 +51,7 @@ var TinyTestHarness = (function () {
   };
 
   TestContext.prototype._log = function (message) {
-    this._harness._addOutput(message);
+    this._harness._addOutput(message.trim());
   };
 
   TestContext.prototype._addResult = function (ok, message, details) {
@@ -263,14 +263,16 @@ var TinyTestHarness = (function () {
   };
 
   Harness.prototype._addOutput = function (line) {
-    this._output.push(line);
-    this._bufferedOutput.push(line);
+    // Ensure line doesn't already end with newline
+    const cleanLine = line.endsWith('\n') ? line.slice(0, -1) : line;
+    this._output.push(cleanLine);
+    this._bufferedOutput.push(cleanLine);
     // Send to all active stream listeners
     for (var i = 0; i < this._streamListeners.length; i++) {
         try {
-            this._streamListeners[i](line);
+            this._streamListeners[i](cleanLine);
             if (this._streamListeners[i]._destination) {
-                this._streamListeners[i]._destination.write(line + '\n');
+                this._streamListeners[i]._destination.write(cleanLine + '\n');
             }
         } catch(e) {
             console.error("Error in stream listener:", e);
@@ -392,10 +394,8 @@ var TinyTestHarness = (function () {
   };
   SimpleStream.prototype.on = function(event, listener) {
       if (event === 'data') {
-          var streamListener = function(line) {
-              listener(line + "\n");
-          };
-          this._harness._streamListeners.push(streamListener);
+          // Just pass through the line without adding newline
+          this._harness._streamListeners.push(listener);
       } else if (event === 'end') {
            this._harness._emitter.on('end', listener);
       }
