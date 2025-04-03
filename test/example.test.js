@@ -1,8 +1,7 @@
 const test = require('../tiny-test-harness').createHarness();
 
-// Create a stream to output TAP results to stdout
-const stream = test.createStream();
-stream.pipe(process.stdout);
+// Create and pipe stream immediately 
+const stream = test.createStream().pipe(process.stdout);
 
 console.log('Test harness created');
 

@@ -249,11 +249,15 @@ var TinyTestHarness = (function () {
     this._totalFailed = 0;
     this._emitter = new EventEmitter();
     this._streamListeners = [];
+    // Store output until stream is connected
+    this._bufferedOutput = [];
     this._addOutput("TAP version 13");
   }
 
   Harness.prototype._addOutput = function (line) {
     this._output.push(line);
+    this._bufferedOutput.push(line);
+    // Send to all active stream listeners
     for (var i = 0; i < this._streamListeners.length; i++) {
         try {
             this._streamListeners[i](line);
@@ -369,7 +373,16 @@ var TinyTestHarness = (function () {
   };
 
   Harness.prototype.createStream = function(options) {
-      return new SimpleStream(this);
+      var stream = new SimpleStream(this);
+      // Replay buffered output to new stream
+      if (this._bufferedOutput.length > 0) {
+          setTimeout(() => {
+              this._bufferedOutput.forEach(line => {
+                  stream._destination && stream._destination.write(line + '\n');
+              });
+          }, 0);
+      }
+      return stream;
   };
 
   function createHarness() {
