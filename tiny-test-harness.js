@@ -39,10 +39,16 @@ var TinyTestHarness = (function () {
     this._plan = null; // Optional: number of assertions planned
     this._assertionCount = 0;
     this._failed = false; // Track if this test or any children failed
+    this._emitter = new EventEmitter();
 
     // Output test start immediately
     this._log("# " + this.name);
   }
+
+  TestContext.prototype.on = function(event, listener) {
+    this._emitter.on(event, listener);
+    return this;
+  };
 
   TestContext.prototype._log = function (message) {
     this._harness._addOutput(message);
@@ -201,6 +207,10 @@ var TinyTestHarness = (function () {
     }
 
     this._ended = true;
+
+    if (this._failed) {
+      this._emitter.emit('error', new Error('Test failed'));
+    }
 
     if (this._parent) {
       this._parent._childEnded(this);

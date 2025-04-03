@@ -36,9 +36,12 @@ const testPromise = new Promise((resolve, reject) => {
     resolve(output);
   });
   
-  t.on('error', (err) => {
+  // Listen for errors on both the test and harness
+  const errorHandler = (err) => {
     reject(err);
-  });
+  };
+  t.on('error', errorHandler);
+  test.on('error', errorHandler);
 });
 
 // Run tests
