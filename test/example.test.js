@@ -32,12 +32,14 @@ const t = test.test('Main test suite', (t) => {
 // Handle completion
 const testPromise = new Promise((resolve, reject) => {
   test.on('finish', () => {
-    console.log('All tests completed!');
-    resolve(output);
+    setTimeout(() => {
+      resolve(output);
+    }, 100); // Extra delay to ensure all output is flushed
   });
   
   test.on('error', (err) => {
-    reject(err);
+    console.error(err);
+    process.exit(1);
   });
 });
 
@@ -45,12 +47,7 @@ const testPromise = new Promise((resolve, reject) => {
 t.run();
 
 // Keep process alive until tests complete
-testPromise.then(() => {
-  // Add slight delay to ensure all output is flushed
-  setTimeout(() => {
-    console.log('\nAll tests completed!');
-  }, 10);
-}).catch(err => {
+testPromise.catch(err => {
   console.error(err);
   process.exit(1);
 });

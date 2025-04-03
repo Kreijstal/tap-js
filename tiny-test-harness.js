@@ -350,19 +350,24 @@ var TinyTestHarness = (function () {
       if (this._finalized) return;
       this._finalized = true;
 
-      this._addOutput("");
-      this._addOutput("1.." + (this._assertionId - 1));
-      this._addOutput("# tests " + (this._assertionId - 1));
-      var passCount = (this._assertionId - 1) - this._totalFailed;
-      this._addOutput("# pass " + passCount);
-      if (this._totalFailed > 0) {
-          this._addOutput("# fail " + this._totalFailed);
-          this._emitter.emit("error", this._output.join("\n"));
-      } else {
-          this._addOutput("# ok");
-          this._emitter.emit("finish", this._output.join("\n"));
-      }
-      this._emitter.emit("end");
+      // Ensure all output is processed first
+      setTimeout(() => {
+        this._addOutput("");
+        this._addOutput("1.." + (this._assertionId - 1));
+        this._addOutput("# tests " + (this._assertionId - 1));
+        var passCount = (this._assertionId - 1) - this._totalFailed;
+        this._addOutput("# pass " + passCount);
+        if (this._totalFailed > 0) {
+            this._addOutput("# fail " + this._totalFailed);
+        } else {
+            this._addOutput("# ok");
+        }
+        this._addOutput("");
+        this._addOutput("All tests completed!");
+        
+        this._emitter.emit(failed ? "error" : "finish", this._output.join("\n"));
+        this._emitter.emit("end");
+      }, 10);
   };
 
   Harness.prototype.onFinish = function (cb) {
