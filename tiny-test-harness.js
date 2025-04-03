@@ -401,11 +401,29 @@ var TinyTestHarness = (function () {
   };
 
   function createHarness() {
-    return new Harness();
+    const harness = new Harness();
+    // Expose test method directly on harness instance
+    harness.test = function(name, cb) {
+      const test = new TestContext(name, this, null);
+      this._topLevelTests.push(test);
+      this._pendingTests++;
+      
+      if (cb) {
+        this._enqueue(function() {
+          test._run(cb);
+        });
+      }
+      
+      return test;
+    };
+    return harness;
   }
 
   return {
-    createHarness: createHarness
+    createHarness: createHarness,
+    // Also expose TestContext for advanced usage if needed
+    TestContext: TestContext,
+    Harness: Harness
   };
 })();
 

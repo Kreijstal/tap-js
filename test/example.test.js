@@ -1,4 +1,5 @@
-const test = require('../tiny-test-harness').createHarness();
+const createHarness = require('../tiny-test-harness').createHarness;
+const test = createHarness();
 
 // Collect output in a string
 let output = '';
@@ -8,7 +9,7 @@ test.createStream({ objectMode: false }).on('data', function(row) {
 });
 
 // Create main test
-const t = test('Main test suite', (t) => {
+const t = test.test('Main test suite', (t) => {
   t.test('Basic assertions', (t) => {
     t.equal(1, 1, 'numbers should be equal');
     t.equal('hello', 'hello', 'strings should be equal');
@@ -42,7 +43,6 @@ const testPromise = new Promise((resolve, reject) => {
 
 // Run tests
 t.run();
-t.end();
 
 // Export promise for async test runners
 module.exports = testPromise;
