@@ -184,10 +184,13 @@ var TinyTestHarness = (function () {
   };
 
   TestContext.prototype.end = function () {
+    console.log(`Test "${this.name}" end() called`);
     if (this._ended) {
+      console.log(`Test "${this.name}" already ended`);
       return;
     }
     if (this._pendingChildren > 0 || this._pendingAsync > 0) {
+      console.log(`Test "${this.name}" waiting to end - pendingChildren: ${this._pendingChildren}, pendingAsync: ${this._pendingAsync}`);
       this._waitingToEnd = true;
       return;
     }
@@ -210,12 +213,15 @@ var TinyTestHarness = (function () {
   };
 
   TestContext.prototype.done = function() {
+    console.log(`Test "${this.name}" done() called`);
     this._pendingAsync--;
     if (this._pendingAsync < 0) {
       console.error("INTERNAL ERROR: Pending async count went negative for test '" + this.name + "'");
       this._pendingAsync = 0;
     }
+    console.log(`Test "${this.name}" pendingAsync after decrement: ${this._pendingAsync}`);
     if (this._waitingToEnd && this._pendingChildren === 0 && this._pendingAsync === 0) {
+      console.log(`Test "${this.name}" all pending complete, calling end()`);
       this.end();
     }
   };
