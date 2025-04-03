@@ -44,7 +44,7 @@ const testPromise = new Promise((resolve, reject) => {
 });
 
 // Run tests
-t.run();
+// t.run(); // No longer needed - harness.test() enqueues automatically when callback is provided
 
 // Keep process alive until tests complete
 testPromise.catch(err => {

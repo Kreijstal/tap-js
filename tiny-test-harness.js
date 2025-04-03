@@ -226,10 +226,12 @@ var TinyTestHarness = (function () {
   // Internal method to execute the test function.
   TestContext.prototype._run = function (cb) {
     var self = this;
+    var syncError = null; // Track sync errors
     debugLog(`Running test: "${self.name}"`);
     try {
       cb(self); // Execute the user's test function with the context (t).
     } catch (e) {
+      syncError = e; // Capture sync error
       // Handle synchronous errors thrown directly by the test function.
       debugLog(`Error thrown synchronously in test "${self.name}":`, e);
       self._addResult(false, "test function threw synchronously: " + e.message, {
@@ -238,10 +240,18 @@ var TinyTestHarness = (function () {
           error: e // Include the error object in details.
       });
       // If the test function crashes, end the test immediately.
+      // This end() call will finalize immediately as there are no pending ops yet.
       self.end();
     }
-    // Note: If the test is async, cb(self) might just *start* async operations.
-    // It's up to the test author to call t.end() or manage t.done() correctly.
+    // If the test function completed without throwing synchronously,
+    // call end() implicitly. This allows tests with only sub-tests or async ops
+    // to correctly signal they are waiting for completion.
+    if (!syncError) {
+        debugLog(`_run (${self.name}): Test function finished synchronously. Calling end() implicitly.`);
+        // This end() will set _waitingToEnd if children/async are pending,
+        // or finalize immediately if not.
+        self.end();
+    }
   };
 
   TestContext.prototype.end = function () {
