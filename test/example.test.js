@@ -23,8 +23,8 @@ const t = test.test('Main test suite', (t) => {
     
     setTimeout(() => {
       t.pass('async test passed');
-      t.done();
-      t.end();
+      t.done(); // Mark async operation complete
+      // Don't call t.end() here - let the parent test end naturally
     }, 100);
   });
 });
