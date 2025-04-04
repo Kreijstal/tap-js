@@ -2,11 +2,15 @@ const isEqual = require('lodash.isequal');
 
 // --- Debug Flag ---
 // Set to true to enable detailed console logging from the harness itself.
-const DEBUG_MODE = false;
+let DEBUG_MODE = false;
 function debugLog(...args) {
   if (DEBUG_MODE) {
     console.log('[DEBUG]', ...args);
   }
+}
+
+function setDebugMode(enabled) {
+  DEBUG_MODE = !!enabled;
 }
 
 var TinyTestHarness = (function () {
@@ -712,4 +716,6 @@ var TinyTestHarness = (function () {
   };
 })();
 
-module.exports = TinyTestHarness;
+const harness = TinyTestHarness;
+harness.setDebugMode = setDebugMode;
+module.exports = harness;
