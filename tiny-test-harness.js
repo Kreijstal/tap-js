@@ -410,16 +410,11 @@ var TinyTestHarness = (function () {
     this._totalFailed = 0;
     this._emitter = new EventEmitter();
     this._streamListeners = [];
-    this._bufferedOutput = [];
+    this._headerWritten = false;
     
-    // Force TAP version to be first output
-    debugLog("Adding TAP version header to output buffers");
+    // Add TAP version to output buffer
     this._output.push("TAP version 14");
-    this._bufferedOutput.push("TAP version 14");
-    debugLog("_output:", this._output);
-    debugLog("_bufferedOutput:", this._bufferedOutput);
-    
-    debugLog("Harness created.");
+    debugLog("Harness created with TAP version in output buffer");
   }
 
   // Register event listeners on the harness (e.g., 'finish', 'error', 'end').
@@ -647,21 +642,26 @@ var TinyTestHarness = (function () {
   };
 
   Harness.prototype.createStream = function(options) {
-      debugLog("createStream called, bufferedOutput length:", this._bufferedOutput.length);
+      debugLog("createStream called");
       var stream = new SimpleStream(this);
-      // Replay buffered output to new stream
-      if (this._bufferedOutput.length > 0) {
-          setTimeout(() => {
-              debugLog("Flushing buffered output to stream");
-              this._bufferedOutput.forEach(line => {
-                  debugLog("Writing to stream:", line);
-                  if (stream._destination) {
-                      debugLog("Writing to destination:", line);
-                      stream._destination.write(line + '\n');
+      
+      // Write header immediately to any existing listeners
+      if (!this._headerWritten) {
+          const header = "TAP version 14";
+          debugLog("Writing header to stream immediately");
+          for (var i = 0; i < this._streamListeners.length; i++) {
+              try {
+                  this._streamListeners[i](header);
+                  if (this._streamListeners[i]._destination) {
+                      this._streamListeners[i]._destination.write(header + '\n');
                   }
-              });
-          }, 0);
+              } catch(e) {
+                  console.error("Error writing header to listener:", e);
+              }
+          }
+          this._headerWritten = true;
       }
+      
       return stream;
   };
 
