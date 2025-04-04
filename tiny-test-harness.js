@@ -369,8 +369,8 @@ var TinyTestHarness = (function () {
   TestContext.prototype._childEnded = function (child) {
     debugLog(`_childEnded (${this.name}, depth ${this.depth}): Child "${child.name}" (depth ${child.depth}) ended. Failed: ${child._failed}`);
 
-    // 1. Log the subtest comment
-    this._log(`# Subtest: ${child.name}`);
+    // 1. Log the subtest comment without "Subtest:" prefix
+    this._log(`# ${child.name}`);
 
     // 2. Flush child's buffer with proper indentation
     const childIndent = '    '.repeat(child.depth - 1); // Parent handles base indentation
@@ -544,8 +544,8 @@ var TinyTestHarness = (function () {
   Harness.prototype._testEnded = function(test) {
       debugLog(`_testEnded: Top-level test "${test.name}" ended. Failed: ${test._failed}`);
 
-      // Add subtest header (no indentation for top-level)
-      this._addOutput(`# Subtest: ${test.name}`);
+      // Add subtest header without "Subtest:" prefix
+      this._addOutput(`# ${test.name}`);
 
       // Flush test's buffer with proper indentation
       test._outputBuffer.forEach(line => {
