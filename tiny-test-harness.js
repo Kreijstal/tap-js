@@ -136,6 +136,16 @@ var TinyTestHarness = (function () {
     });
   };
 
+  TestContext.prototype.notEqual = function (actual, expected, message) {
+    var ok = actual !== expected;
+    message = message || "should not be equal";
+    return this._addResult(ok, message, {
+      operator: "notEqual",
+      actual: actual,
+      expected: expected
+    });
+  };
+
   TestContext.prototype.deepEqual = function (actual, expected, message) {
     var ok = _.isEqual(actual, expected);
     message = message || "should be deeply equal";
