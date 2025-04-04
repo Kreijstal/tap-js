@@ -9,50 +9,55 @@ test.createStream({ objectMode: false }).on('data', function(row) {
 });
 
 // Create main test
-const t = test.test('Main test suite', (t) => {
+test.test('Main test suite', (t) => {
   t.test('Basic assertions', (t) => {
-    t.equal(1, 2, 'this number comparison should fail'); // <--- ADD A FAILING ASSERTION
     t.equal(1, 1, 'numbers should be equal');
     t.equal('hello', 'hello', 'strings should be equal');
+    t.notEqual(1, 2, 'numbers should not be equal');
     t.deepEqual({a: 1}, {a: 1}, 'objects should be deeply equal');
-    t.throws(() => { throw new Error('oops') }, 'should throw error');
+    t.notDeepEqual({a: 1}, {a: 2}, 'objects should not match');
+    t.throws(() => { throw new Error('expected error') }, 'should throw error');
+    t.doesNotThrow(() => {}, 'should not throw');
     t.end();
   });
 
-  t.test('Async test', (t) => {
-    t._pendingAsync++; // Mark async operation start
-    
-    setTimeout(() => {
-      t.pass('async test passed');
-      t.done(); // Mark async operation complete
-      // Don't call t.end() here - let the parent test end naturally
-    }, 100);
+  t.test('Async operations', (t) => {
+    t.test('Successful async', (t) => {
+      t._pendingAsync++;
+      setTimeout(() => {
+        t.pass('async operation completed');
+        t.done();
+      }, 50);
+    });
+
+    t.test('Failing async', (t) => {
+      t._pendingAsync++;
+      setTimeout(() => {
+        t.fail('async operation failed');
+        t.done();
+      }, 50);
+    });
+  });
+
+  t.test('Nested tests', (t) => {
+    t.test('Level 1', (t) => {
+      t.test('Level 2', (t) => {
+        t.pass('deeply nested test passed');
+        t.end();
+      });
+      t.end();
+    });
+    t.end();
   });
 });
 
 // Handle completion
-const testPromise = new Promise((resolve, reject) => {
-  test.on('finish', () => {
-    setTimeout(() => {
-      resolve(output);
-    }, 100); // Extra delay to ensure all output is flushed
-  });
-  
-  test.on('error', (err) => {
-    //console.error(err);
-    console.error("\nTest suite failed."); 
-    process.exit(1);
-  });
+test.on('finish', () => {
+  console.log('\nAll tests completed');
+  process.exit(0);
 });
 
-// Run tests
-// t.run(); // No longer needed - harness.test() enqueues automatically when callback is provided
-
-// Keep process alive until tests complete
-testPromise.catch(err => {
-  //console.error(err);
+test.on('error', (err) => {
+  console.error('\nTest suite failed:', err.message);
   process.exit(1);
 });
-
-// Export promise for async test runners
-module.exports = testPromise;
