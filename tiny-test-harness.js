@@ -156,9 +156,34 @@ var TinyTestHarness = (function () {
     });
   };
 
+  TestContext.prototype.notDeepEqual = function (actual, expected, message) {
+    var ok = !_.isEqual(actual, expected);
+    message = message || "should not be deeply equal";
+    return this._addResult(ok, message, {
+      operator: "notDeepEqual",
+      actual: actual,
+      expected: expected
+    });
+  };
+
   // Assertion: checks if function `fn` throws an error.
   // `expectedError` can be undefined (any error), a constructor, a RegExp, or a string.
   // `message` is the description of the assertion.
+  TestContext.prototype.doesNotThrow = function (fn, message) {
+    var caught = null;
+    try {
+      fn();
+    } catch (e) {
+      caught = e;
+    }
+    var ok = !caught;
+    message = message || "should not throw";
+    return this._addResult(ok, message, {
+      operator: "doesNotThrow",
+      error: caught
+    });
+  };
+
   TestContext.prototype.throws = function (fn, expectedError, message) {
       var caught = null;
       var ok = false;
