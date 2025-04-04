@@ -70,6 +70,21 @@ var TinyTestHarness = (function () {
     debugLog(`Buffered (${this.name}, depth ${this.depth}): ${cleanMessage}`);
   };
 
+  TestContext.prototype.test = function (name, cb) {
+    if (this._ended) {
+        throw new Error("Cannot call t.test() after t.end()");
+    }
+    var child = new TestContext(name, this._harness, this);
+    this._children.push(child);
+    this._pendingChildren++;
+    debugLog(`Sub-test scheduled: "${name}" (parent: "${this.name}"). Pending children for "${this.name}": ${this._pendingChildren}`);
+    // Enqueue the child test to run after the current synchronous flow completes.
+    this._harness._enqueue(function () {
+      child._run(cb);
+    });
+    return child;
+  };
+
   TestContext.prototype._addResult = function (ok, message, details) {
     this._assertionCount++;
     var result = {
