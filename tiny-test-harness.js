@@ -370,12 +370,13 @@ var TinyTestHarness = (function () {
     // 1. Log the subtest comment
     this._log(`# Subtest: ${child.name}`);
 
-    // 2. Flush child's buffer with proper indentation (4 spaces per level)
-    const childIndent = '    '.repeat(child.depth);
+    // 2. Flush child's buffer with proper indentation
+    const childIndent = '    '.repeat(child.depth - 1); // Parent handles base indentation
     child._outputBuffer.forEach(line => {
-        // Indent all non-empty lines from child
-        const indentedLine = line ? childIndent + line : line;
-        this._log(indentedLine);
+        // Skip empty lines
+        if (!line) return;
+        // Indent based on child's depth
+        this._log(childIndent + line);
     });
 
     // 3. Generate and log the correlated test point
@@ -399,7 +400,7 @@ var TinyTestHarness = (function () {
 
   // --- Harness ---
   function Harness() {
-    this._output = []; // Initialize empty output buffer
+    this._output = []; 
     this._queue = [];
     this._running = false;
     this._assertionId = 1;
@@ -409,10 +410,12 @@ var TinyTestHarness = (function () {
     this._totalFailed = 0;
     this._emitter = new EventEmitter();
     this._streamListeners = [];
-    this._bufferedOutput = []; // Initialize empty buffer
+    this._bufferedOutput = [];
     
-    // Add TAP version header immediately
-    this._addOutput("TAP version 14");
+    // Force TAP version to be first output
+    this._output.push("TAP version 14");
+    this._bufferedOutput.push("TAP version 14");
+    
     debugLog("Harness created.");
   }
 
@@ -423,10 +426,13 @@ var TinyTestHarness = (function () {
   };
 
   Harness.prototype._addOutput = function (line) {
-    // Preserve all whitespace, just ensure no trailing newline
-    const cleanLine = line.endsWith('\n') ? line.slice(0, -1) : line;
+    // Ensure we have a string and trim only trailing whitespace
+    const cleanLine = String(line).replace(/\s+$/, '');
+    if (!cleanLine) return; // Skip empty lines
+    
     this._output.push(cleanLine);
     this._bufferedOutput.push(cleanLine);
+    
     // Send to all active stream listeners
     for (var i = 0; i < this._streamListeners.length; i++) {
         try {
@@ -542,15 +548,15 @@ var TinyTestHarness = (function () {
   Harness.prototype._testEnded = function(test) {
       debugLog(`_testEnded: Top-level test "${test.name}" ended. Failed: ${test._failed}`);
 
-      // Add subtest header
+      // Add subtest header (no indentation for top-level)
       this._addOutput(`# Subtest: ${test.name}`);
 
-      // Flush test's buffer (already properly indented)
+      // Flush test's buffer with proper indentation
       test._outputBuffer.forEach(line => {
           this._addOutput(line);
       });
 
-      // Add final test point
+      // Add final test point (no indentation)
       const assertionId = this._assertionId++;
       const line = (!test._failed ? 'ok ' : 'not ok ') + assertionId + ' - ' + test.name;
       this._addOutput(line);
