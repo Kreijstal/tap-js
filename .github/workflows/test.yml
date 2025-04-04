@@ -1,8 +1,10 @@
-name: Test
+name: Test and Release
 
 on:
   push:
     branches: [ "master" ]
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
   pull_request:
     branches: [ "master" ]
 
@@ -28,3 +30,28 @@ jobs:
 
     - name: Run tests
       run: npm test
+
+  release:
+    name: Create Release
+    needs: test
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            Release created from tag on git.
+            Changes:
+            - See commit history for details
+          draft: false
+          prerelease: false
