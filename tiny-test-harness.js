@@ -50,6 +50,8 @@ var TinyTestHarness = (function () {
     this._assertionCount = 0;
     this._failed = false; // Track if this test or any children failed
     this._emitter = new EventEmitter();
+    this._outputBuffer = []; // Buffer for this test's direct output
+    this.depth = parent ? parent.depth + 1 : 0; // Calculate nesting depth
     debugLog(`TestContext created: "${this.name}" (parent: ${parent ? `"${parent.name}"` : 'null'})`);
 
     // Output test start immediately according to TAP spec.
@@ -62,8 +64,8 @@ var TinyTestHarness = (function () {
 
   // Internal method to log TAP output via the harness.
   TestContext.prototype._log = function (message) {
-    // Trim to avoid extra newlines in harness output buffer.
-    this._harness._addOutput(message.trim());
+    // Add raw message to this context's buffer
+    this._outputBuffer.push(message.trim());
   };
 
   TestContext.prototype._addResult = function (ok, message, details) {
@@ -261,7 +263,6 @@ var TinyTestHarness = (function () {
   TestContext.prototype._run = function (cb) {
     var self = this;
     var syncError = null; // Track sync errors
-    self._log("# " + self.name);
     debugLog(`Running test: "${self.name}"`);
     try {
       cb(self); // Execute the user's test function with the context (t).
@@ -364,18 +365,33 @@ var TinyTestHarness = (function () {
 
   // Internal callback when a child test context finishes.
   TestContext.prototype._childEnded = function (child) {
-    debugLog(`_childEnded (${this.name}): Child "${child.name}" ended. Decrementing pending count.`);
+    debugLog(`_childEnded (${this.name}, depth ${this.depth}): Child "${child.name}" (depth ${child.depth}) ended. Failed: ${child._failed}`);
+
+    // 1. Log the subtest comment
+    this._log(`# Subtest: ${child.name}`);
+
+    // 2. Flush child's buffer with proper indentation
+    const childIndent = '    '.repeat(child.depth);
+    child._outputBuffer.forEach(line => {
+        this._log(childIndent + line);
+    });
+
+    // 3. Generate and log the correlated test point
+    const childResultOk = !child._failed;
+    this._addResult(childResultOk, child.name, {
+        operator: 'subtest'
+    });
+
+    // 4. Decrement pending count and check if parent can end
     this._pendingChildren--;
     if (this._pendingChildren < 0) {
-        // Should not happen.
         console.error(`INTERNAL ERROR (${this.name}): Pending children count went negative.`);
         this._pendingChildren = 0;
     }
-     debugLog(`_childEnded (${this.name}): Pending children count now: ${this._pendingChildren}`);
-    // If this parent test was waiting to end, check if conditions are met.
+    debugLog(`_childEnded (${this.name}): Pending children count now: ${this._pendingChildren}`);
     if (this._waitingToEnd && this._pendingChildren === 0 && this._pendingAsync === 0) {
-      debugLog(`_childEnded (${this.name}): All pending operations finished while waiting to end. Calling end() now.`);
-      this.end(); // Trigger the deferred end logic.
+        debugLog(`_childEnded (${this.name}): All pending operations finished while waiting to end. Calling end() now.`);
+        this.end();
     }
   };
 
@@ -393,7 +409,7 @@ var TinyTestHarness = (function () {
     this._streamListeners = [];
     // Store output until stream is connected
     this._bufferedOutput = [];
-    this._addOutput("TAP version 13"); // Standard TAP header.
+    this._addOutput("TAP version 14"); // Standard TAP header.
     debugLog("Harness created.");
   }
 
@@ -522,15 +538,19 @@ var TinyTestHarness = (function () {
   // Internal callback when a top-level test context finishes.
   Harness.prototype._testEnded = function(test) {
       debugLog(`_testEnded: Top-level test "${test.name}" ended. Failed: ${test._failed}`);
+
+      // Flush the top-level test's buffer directly to the harness output
+      test._outputBuffer.forEach(line => {
+          this._addOutput(line);
+      });
+
       this._pendingTests--;
-      this._totalAssertions += test._assertionCount;
       if (test._failed) {
           this._totalFailed++;
           debugLog(`_testEnded: Total failed count incremented to ${this._totalFailed}`);
       }
-       debugLog(`_testEnded: Pending top-level tests remaining: ${this._pendingTests}`);
+      debugLog(`_testEnded: Pending top-level tests remaining: ${this._pendingTests}`);
 
-      // Check if this was the last pending test AND the queue processor is not running.
       if (this._pendingTests === 0 && !this._running && this._queue.length === 0) {
           debugLog("_testEnded: Last test ended and queue is idle. Finalizing.");
           this._finalize(this._totalFailed > 0);
