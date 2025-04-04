@@ -75,4 +75,4 @@ test.on('finish', () => {
 
 ## License
 
-MIT
+GNU Affero General Public License (AGPL)
