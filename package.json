@@ -1,23 +1,38 @@
 {
   "name": "tap",
   "version": "1.0.0",
-  "description": "",
+  "description": "A minimal JavaScript test harness with TAP-like output",
   "main": "tiny-test-harness.js",
   "scripts": {
-    "test": "node test/example.test.js"
+    "test": "node test/example.test.js",
+    "lint": "eslint .",
+    "coverage": "nyc npm test"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Kreijstal/tap-js.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "test",
+    "harness",
+    "tap",
+    "testing",
+    "unit-testing"
+  ],
+  "author": "Kreijstal <your.email@example.com>",
+  "license": "AGPL-3.0",
   "bugs": {
     "url": "https://github.com/Kreijstal/tap-js/issues"
   },
   "homepage": "https://github.com/Kreijstal/tap-js#readme",
   "dependencies": {
     "lodash": "^4.17.21"
+  },
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "nyc": "^15.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
