@@ -2,7 +2,7 @@ const _ = require('lodash');
 
 // --- Debug Flag ---
 // Set to true to enable detailed console logging from the harness itself.
-const DEBUG_MODE = true;
+const DEBUG_MODE = false;
 function debugLog(...args) {
   if (DEBUG_MODE) {
     console.log('[DEBUG]', ...args);
