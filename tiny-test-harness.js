@@ -64,9 +64,10 @@ var TinyTestHarness = (function () {
 
   // Internal method to log TAP output via the harness.
   TestContext.prototype._log = function (message) {
-    // Preserve leading whitespace (indentation) but trim trailing whitespace
-    const trimmed = message.replace(/\s+$/, '');
-    this._outputBuffer.push(trimmed);
+    // Preserve all whitespace except trailing newlines
+    const cleanMessage = message.replace(/\s+$/, '');
+    this._outputBuffer.push(cleanMessage);
+    debugLog(`Buffered (${this.name}, depth ${this.depth}): ${cleanMessage}`);
   };
 
   TestContext.prototype._addResult = function (ok, message, details) {
@@ -92,22 +93,20 @@ var TinyTestHarness = (function () {
       // Log TAP output for a failing assertion.
       this._log("not ok " + result.id + " " + result.message);
       if (details) {
-        // Log YAMLish details block for failures.
+        // Log YAML block for failures with consistent indentation
         this._log("  ---");
-        this._log("  operator: " + details.operator);
-        // Only include expected/actual if they are relevant for the operator.
+        this._log("  operator: " + (details.operator || 'unknown'));
         if (details.hasOwnProperty("expected")) {
           this._log("  expected: " + JSON.stringify(details.expected));
         }
         if (details.hasOwnProperty("actual")) {
-          this._log("  actual:   " + JSON.stringify(details.actual));
+          this._log("  actual: " + JSON.stringify(details.actual));
         }
         if (details.error) {
-            // Format error with stack trace if available.
-            var stack = details.error.stack ? String(details.error.stack) : String(details.error);
-            // Indent stack trace for YAML block.
-            var indentedStack = stack.split('\n').map(function(line) { return '    ' + line; }).join('\n');
-            this._log("  error: |-\n" + indentedStack);
+            const stack = details.error.stack ? String(details.error.stack) : String(details.error);
+            const indentedStack = stack.split('\n').map(line => '      ' + line).join('\n');
+            this._log("  error: |");
+            this._log(indentedStack);
         }
         this._log("  ...");
       }
@@ -374,7 +373,9 @@ var TinyTestHarness = (function () {
     // 2. Flush child's buffer with proper indentation
     const childIndent = '    '.repeat(child.depth);
     child._outputBuffer.forEach(line => {
-        this._log(childIndent + line);
+        // Only indent non-empty lines
+        const indentedLine = line ? childIndent + line : line;
+        this._log(indentedLine);
     });
 
     // 3. Generate and log the correlated test point
@@ -398,7 +399,7 @@ var TinyTestHarness = (function () {
 
   // --- Harness ---
   function Harness() {
-    this._output = [];
+    this._output = ["TAP version 14"]; // Initialize with version line
     this._queue = [];
     this._running = false;
     this._assertionId = 1;
@@ -408,9 +409,7 @@ var TinyTestHarness = (function () {
     this._totalFailed = 0;
     this._emitter = new EventEmitter();
     this._streamListeners = [];
-    // Store output until stream is connected
-    this._bufferedOutput = [];
-    this._addOutput("TAP version 14"); // Standard TAP header.
+    this._bufferedOutput = ["TAP version 14"]; // Initialize buffer with version
     debugLog("Harness created.");
   }
 
@@ -540,10 +539,18 @@ var TinyTestHarness = (function () {
   Harness.prototype._testEnded = function(test) {
       debugLog(`_testEnded: Top-level test "${test.name}" ended. Failed: ${test._failed}`);
 
-      // Flush the top-level test's buffer directly to the harness output
+      // Add subtest header
+      this._addOutput(`# Subtest: ${test.name}`);
+
+      // Flush test's buffer (already properly indented)
       test._outputBuffer.forEach(line => {
           this._addOutput(line);
       });
+
+      // Add final test point
+      const assertionId = this._assertionId++;
+      const line = (!test._failed ? 'ok ' : 'not ok ') + assertionId + ' - ' + test.name;
+      this._addOutput(line);
 
       this._pendingTests--;
       if (test._failed) {
