@@ -400,7 +400,7 @@ var TinyTestHarness = (function () {
 
   // --- Harness ---
   function Harness() {
-    this._output = []; 
+    this._output = ["TAP version 14"]; // Initialize with version line
     this._queue = [];
     this._running = false;
     this._assertionId = 1;
@@ -411,9 +411,6 @@ var TinyTestHarness = (function () {
     this._emitter = new EventEmitter();
     this._streamListeners = [];
     this._headerWritten = false;
-    
-    // Add TAP version to output buffer
-    this._output.push("TAP version 14");
     debugLog("Harness created with TAP version in output buffer");
   }
 
@@ -429,7 +426,6 @@ var TinyTestHarness = (function () {
     if (!cleanLine) return; // Skip empty lines
     
     this._output.push(cleanLine);
-    this._bufferedOutput.push(cleanLine);
     
     // Send to all active stream listeners
     for (var i = 0; i < this._streamListeners.length; i++) {
@@ -625,18 +621,28 @@ var TinyTestHarness = (function () {
       this._harness = harness;
       this._emitter = new EventEmitter();
       this._destination = null;
-      this._objectMode = false;
   }
+  
   SimpleStream.prototype.pipe = function(destination) {
       this._destination = destination;
-      return this;
+      // Write all existing output to the destination
+      this._harness._output.forEach(line => {
+          destination.write(line + '\n');
+      });
+      // Add a writer for future output
+      const writer = (line) => destination.write(line + '\n');
+      this._harness._streamListeners.push(writer);
+      return destination;
   };
+  
   SimpleStream.prototype.on = function(event, listener) {
       if (event === 'data') {
-          // Just pass through the line without adding newline
+          // Replay existing output
+          this._harness._output.forEach(line => listener(line));
+          // Add listener for future output
           this._harness._streamListeners.push(listener);
       } else if (event === 'end') {
-           this._harness._emitter.on('end', listener);
+          this._harness._emitter.on('end', listener);
       }
       return this;
   };
@@ -645,21 +651,19 @@ var TinyTestHarness = (function () {
       debugLog("createStream called");
       var stream = new SimpleStream(this);
       
-      // Write header immediately to any existing listeners
-      if (!this._headerWritten) {
-          const header = "TAP version 14";
-          debugLog("Writing header to stream immediately");
-          for (var i = 0; i < this._streamListeners.length; i++) {
+      // Write all buffered output to new stream
+      for (var i = 0; i < this._output.length; i++) {
+          const line = this._output[i];
+          for (var j = 0; j < this._streamListeners.length; j++) {
               try {
-                  this._streamListeners[i](header);
-                  if (this._streamListeners[i]._destination) {
-                      this._streamListeners[i]._destination.write(header + '\n');
+                  this._streamListeners[j](line);
+                  if (this._streamListeners[j]._destination) {
+                      this._streamListeners[j]._destination.write(line + '\n');
                   }
               } catch(e) {
-                  console.error("Error writing header to listener:", e);
+                  console.error("Error writing to listener:", e);
               }
           }
-          this._headerWritten = true;
       }
       
       return stream;
