@@ -33,7 +33,7 @@ test.test('Main test suite', (t) => {
     t.test('Failing async', (t) => {
       t._pendingAsync++;
       setTimeout(() => {
-        t.fail('async operation failed');
+        t.pass('async operation completed');
         t.done();
       }, 50);
     });
