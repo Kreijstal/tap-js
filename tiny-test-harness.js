@@ -1,4 +1,4 @@
-const _ = require('lodash');
+const isEqual = require('lodash.isequal');
 
 // --- Debug Flag ---
 // Set to true to enable detailed console logging from the harness itself.
@@ -86,6 +86,7 @@ var TinyTestHarness = (function () {
   };
 
   TestContext.prototype._addResult = function (ok, message, details) {
+    const harness = this._harness; // Get harness reference
     this._assertionCount++;
     var result = {
       ok: !!ok,
@@ -97,6 +98,7 @@ var TinyTestHarness = (function () {
     debugLog(`Assertion ${result.id} (${this.name}): ${ok ? 'OK' : 'NOT OK'} - ${result.message}`);
     if (!ok) {
       this._failed = true; // Mark this test context as failed.
+      harness._totalFailed++; // Increment harness counter
       debugLog(`Test "${this.name}" marked as failed due to assertion ${result.id}`);
       var current = this;
       while (current) {
@@ -164,7 +166,7 @@ var TinyTestHarness = (function () {
   };
 
   TestContext.prototype.deepEqual = function (actual, expected, message) {
-    var ok = _.isEqual(actual, expected);
+    var ok = isEqual(actual, expected);
     message = message || "should be deeply equal";
     return this._addResult(ok, message, {
       operator: "deepEqual",
@@ -174,7 +176,7 @@ var TinyTestHarness = (function () {
   };
 
   TestContext.prototype.notDeepEqual = function (actual, expected, message) {
-    var ok = !_.isEqual(actual, expected);
+    var ok = !isEqual(actual, expected);
     message = message || "should not be deeply equal";
     return this._addResult(ok, message, {
       operator: "notDeepEqual",
@@ -558,10 +560,6 @@ var TinyTestHarness = (function () {
       this._addOutput(line);
 
       this._pendingTests--;
-      if (test._failed) {
-          this._totalFailed++;
-          debugLog(`_testEnded: Total failed count incremented to ${this._totalFailed}`);
-      }
       debugLog(`_testEnded: Pending top-level tests remaining: ${this._pendingTests}`);
 
       if (this._pendingTests === 0 && !this._running && this._queue.length === 0) {
