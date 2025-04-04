@@ -245,19 +245,6 @@ var TinyTestHarness = (function () {
       return this._addResult(ok, message, details);
   };
 
-  TestContext.prototype.test = function (name, cb) {
-    if (this._ended) {
-        throw new Error("Cannot call t.test() after t.end()");
-    }
-    var child = new TestContext(name, this._harness, this);
-    this._children.push(child);
-    this._pendingChildren++;
-    debugLog(`Sub-test scheduled: "${name}" (parent: "${this.name}"). Pending children for "${this.name}": ${this._pendingChildren}`);
-    // Enqueue the child test to run after the current synchronous flow completes.
-    this._harness._enqueue(function () {
-      child._run(cb);
-    });
-  };
 
   // Internal method to execute the test function.
   TestContext.prototype._run = function (cb) {
@@ -608,13 +595,6 @@ var TinyTestHarness = (function () {
       }, 0); // Use 0ms delay, usually sufficient for event loop tick.
   };
 
-  Harness.prototype.onFinish = function (cb) {
-    this._emitter.on("finish", cb);
-  };
-
-  Harness.prototype.onError = function (cb) {
-    this._emitter.on("error", cb);
-  };
 
   function SimpleStream(harness) {
       debugLog("Creating new SimpleStream");
@@ -670,41 +650,50 @@ var TinyTestHarness = (function () {
   };
 
   function createHarness() {
-    const harness = new Harness();
-    // Expose the primary 'test' method directly on the harness instance
-    // for the common case: harness.test(...)
-    harness.test = function(name, cb) {
-      // Create a top-level test context (no parent).
-      const test = new TestContext(name, this, null);
-      // Store the callback on the test context in case test.run() is used later.
-      // This addresses the potential issue noted in TestContext.prototype.run.
-      test._cb = cb;
-      this._topLevelTests.push(test);
-      this._pendingTests++;
-      debugLog(`harness.test: Created top-level test "${name}". Pending tests: ${this._pendingTests}`);
+    // 1. Create the internal instance that manages state
+    const harnessInstance = new Harness();
 
-      // If a callback is provided, enqueue it for immediate (asynchronous) execution.
+    // 2. Define the main function that will be returned and is callable
+    const callableHarness = function(name, cb) {
+      // This function defines a top-level test.
+      // It uses the internal harnessInstance to manage the test.
+      const test = new TestContext(name, harnessInstance, null);
+      test._cb = cb;
+      harnessInstance._topLevelTests.push(test);
+      harnessInstance._pendingTests++;
+      debugLog(`callableHarness: Created top-level test "${name}". Pending tests: ${harnessInstance._pendingTests}`);
+
       if (cb) {
-        debugLog(`harness.test: Enqueuing immediate run for "${name}"`);
-        this._enqueue(function() {
-          // We need the 'test' instance inside the closure.
+        debugLog(`callableHarness: Enqueuing immediate run for "${name}"`);
+        harnessInstance._enqueue(function() {
           const currentTest = test;
           currentTest._run(currentTest._cb);
         });
       } else {
-        // If no callback, the user must call test.run() later.
-        debugLog(`harness.test: Test "${name}" created without callback. Manual run required.`);
+        debugLog(`callableHarness: Test "${name}" created without callback. Manual run required.`);
       }
-
-      return test; // Return the TestContext instance.
+      return test;
     };
-    debugLog("createHarness: Harness instance created and configured.");
-    return harness;
+
+    // 3. Attach other essential public methods
+    callableHarness.createStream = harnessInstance.createStream.bind(harnessInstance);
+    callableHarness.on = harnessInstance.on.bind(harnessInstance);
+
+    callableHarness.onFinish = function(cb) {
+      harnessInstance._emitter.on("finish", cb);
+      return callableHarness;
+    };
+    callableHarness.onError = function(cb) {
+      harnessInstance._emitter.on("error", cb);
+      return callableHarness;
+    };
+
+    debugLog("createHarness: Harness instance created, returning callable function wrapper.");
+    return callableHarness;
   }
 
   return {
     createHarness: createHarness,
-    // Also expose TestContext for advanced usage if needed
     TestContext: TestContext,
     Harness: Harness
   };
