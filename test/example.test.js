@@ -9,7 +9,7 @@ test.createStream({ objectMode: false }).on('data', function(row) {
 });
 
 // Create main test
-test.test('Main test suite', (t) => {
+test('Main test suite', (t) => {
   t.test('Basic assertions', (t) => {
     t.equal(1, 1, 'numbers should be equal');
     t.equal('hello', 'hello', 'strings should be equal');
