@@ -370,10 +370,10 @@ var TinyTestHarness = (function () {
     // 1. Log the subtest comment
     this._log(`# Subtest: ${child.name}`);
 
-    // 2. Flush child's buffer with proper indentation
+    // 2. Flush child's buffer with proper indentation (4 spaces per level)
     const childIndent = '    '.repeat(child.depth);
     child._outputBuffer.forEach(line => {
-        // Only indent non-empty lines
+        // Indent all non-empty lines from child
         const indentedLine = line ? childIndent + line : line;
         this._log(indentedLine);
     });
