@@ -399,7 +399,7 @@ var TinyTestHarness = (function () {
 
   // --- Harness ---
   function Harness() {
-    this._output = ["TAP version 14"]; // Initialize with version line
+    this._output = []; // Initialize empty output buffer
     this._queue = [];
     this._running = false;
     this._assertionId = 1;
@@ -409,7 +409,10 @@ var TinyTestHarness = (function () {
     this._totalFailed = 0;
     this._emitter = new EventEmitter();
     this._streamListeners = [];
-    this._bufferedOutput = ["TAP version 14"]; // Initialize buffer with version
+    this._bufferedOutput = []; // Initialize empty buffer
+    
+    // Add TAP version header immediately
+    this._addOutput("TAP version 14");
     debugLog("Harness created.");
   }
 
