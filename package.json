@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node test/example.test.js",
     "lint": "eslint .",
-    "coverage": "nyc npm test"
+    "coverage": "nyc npm test",
+    "release": "./scripts/release.sh"
   },
   "repository": {
     "type": "git",
