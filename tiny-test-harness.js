@@ -64,8 +64,9 @@ var TinyTestHarness = (function () {
 
   // Internal method to log TAP output via the harness.
   TestContext.prototype._log = function (message) {
-    // Add raw message to this context's buffer
-    this._outputBuffer.push(message.trim());
+    // Preserve leading whitespace (indentation) but trim trailing whitespace
+    const trimmed = message.replace(/\s+$/, '');
+    this._outputBuffer.push(trimmed);
   };
 
   TestContext.prototype._addResult = function (ok, message, details) {
@@ -420,7 +421,7 @@ var TinyTestHarness = (function () {
   };
 
   Harness.prototype._addOutput = function (line) {
-    // Ensure line doesn't already end with newline
+    // Preserve all whitespace, just ensure no trailing newline
     const cleanLine = line.endsWith('\n') ? line.slice(0, -1) : line;
     this._output.push(cleanLine);
     this._bufferedOutput.push(cleanLine);
