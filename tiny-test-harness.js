@@ -2,7 +2,7 @@ const _ = require('lodash');
 
 // --- Debug Flag ---
 // Set to true to enable detailed console logging from the harness itself.
-const DEBUG_MODE = true;
+const DEBUG_MODE = false;
 function debugLog(...args) {
   if (DEBUG_MODE) {
     console.log('[DEBUG]', ...args);
@@ -53,7 +53,6 @@ var TinyTestHarness = (function () {
     debugLog(`TestContext created: "${this.name}" (parent: ${parent ? `"${parent.name}"` : 'null'})`);
 
     // Output test start immediately according to TAP spec.
-    this._log("# " + this.name);
   }
 
   TestContext.prototype.on = function(event, listener) {
@@ -227,6 +226,7 @@ var TinyTestHarness = (function () {
   TestContext.prototype._run = function (cb) {
     var self = this;
     var syncError = null; // Track sync errors
+    self._log("# " + self.name);
     debugLog(`Running test: "${self.name}"`);
     try {
       cb(self); // Execute the user's test function with the context (t).

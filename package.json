@@ -1,6 +1,6 @@
 {
   "name": "tap",
-  "version": "1.0.0",
+  "version": "0.0.2",
   "description": "A minimal JavaScript test harness with TAP-like output",
   "main": "tiny-test-harness.js",
   "scripts": {

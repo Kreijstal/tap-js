@@ -25,7 +25,7 @@ git commit -m "chore: release v$VERSION"
 git tag -a "v$VERSION" -m "Release v$VERSION"
 
 # Push everything
-git push origin main
+git push origin master
 git push origin "v$VERSION"
 
 echo "Release v$VERSION prepared and pushed!"

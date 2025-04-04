@@ -11,6 +11,7 @@ test.createStream({ objectMode: false }).on('data', function(row) {
 // Create main test
 const t = test.test('Main test suite', (t) => {
   t.test('Basic assertions', (t) => {
+    t.equal(1, 2, 'this number comparison should fail'); // <--- ADD A FAILING ASSERTION
     t.equal(1, 1, 'numbers should be equal');
     t.equal('hello', 'hello', 'strings should be equal');
     t.deepEqual({a: 1}, {a: 1}, 'objects should be deeply equal');
@@ -38,7 +39,8 @@ const testPromise = new Promise((resolve, reject) => {
   });
   
   test.on('error', (err) => {
-    console.error(err);
+    //console.error(err);
+    console.error("\nTest suite failed."); 
     process.exit(1);
   });
 });
@@ -48,7 +50,7 @@ const testPromise = new Promise((resolve, reject) => {
 
 // Keep process alive until tests complete
 testPromise.catch(err => {
-  console.error(err);
+  //console.error(err);
   process.exit(1);
 });
 
