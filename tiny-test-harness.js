@@ -2,7 +2,7 @@ const _ = require('lodash');
 
 // --- Debug Flag ---
 // Set to true to enable detailed console logging from the harness itself.
-const DEBUG_MODE = false;
+const DEBUG_MODE = true;
 function debugLog(...args) {
   if (DEBUG_MODE) {
     console.log('[DEBUG]', ...args);
@@ -413,8 +413,11 @@ var TinyTestHarness = (function () {
     this._bufferedOutput = [];
     
     // Force TAP version to be first output
+    debugLog("Adding TAP version header to output buffers");
     this._output.push("TAP version 14");
     this._bufferedOutput.push("TAP version 14");
+    debugLog("_output:", this._output);
+    debugLog("_bufferedOutput:", this._bufferedOutput);
     
     debugLog("Harness created.");
   }
@@ -623,6 +626,7 @@ var TinyTestHarness = (function () {
   };
 
   function SimpleStream(harness) {
+      debugLog("Creating new SimpleStream");
       this._harness = harness;
       this._emitter = new EventEmitter();
       this._destination = null;
@@ -643,12 +647,18 @@ var TinyTestHarness = (function () {
   };
 
   Harness.prototype.createStream = function(options) {
+      debugLog("createStream called, bufferedOutput length:", this._bufferedOutput.length);
       var stream = new SimpleStream(this);
       // Replay buffered output to new stream
       if (this._bufferedOutput.length > 0) {
           setTimeout(() => {
+              debugLog("Flushing buffered output to stream");
               this._bufferedOutput.forEach(line => {
-                  stream._destination && stream._destination.write(line + '\n');
+                  debugLog("Writing to stream:", line);
+                  if (stream._destination) {
+                      debugLog("Writing to destination:", line);
+                      stream._destination.write(line + '\n');
+                  }
               });
           }, 0);
       }
